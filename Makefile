@@ -7,10 +7,11 @@ RED    := $(shell tput -Txterm setaf 1)
 RESET  := $(shell tput -Txterm sgr0)
 
 # --- Configuration ---
-GCP_PROJECT_ID ?= my-gcp-project-id
+GCP_PROJECT_ID ?= gcp-capstone-481414
 GCP_REGION     ?= us-central1
 GCP_ZONE       ?= us-central1-a
-TERRAFORM_DIRS := bootstrap networking security registry gke observability
+# TERRAFORM_DIRS := networking security registry gke observability
+TERRAFORM_DIRS := networking
 
 # --- Terraform Backend ---
 TF_STATE_BUCKET ?= $(ENV)-gcp-capstone-tf-state-$(GCP_PROJECT_ID)
@@ -51,27 +52,26 @@ bootclean: ## make bootclean
 	@echo "$(YELLOW)=== Cleaning bootstrap Terraform cache ===$(RESET)"
 	@cd bootstrap && rm -rf .terraform && rm -f .terraform.lock.hcl
 
-init: ## make init MODULE=networking ENV=dev
-	@echo "$(GREEN)=== Initializing $(MODULE) for $(ENV) ===$(RESET)"
-	@if [ ! -f terraform/$(MODULE)/backend.tfvars ]; then \
-		echo "bucket = \"$(TF_STATE_BUCKET)\"" > terraform/$(MODULE)/backend.tfvars; \
-		echo "prefix = \"$(MODULE)\"" >> terraform/$(MODULE)/backend.tfvars; \
+init: ## make init ENV=dev
+	@echo "$(GREEN)=== Initializing Terraform Backend for $(ENV) ===$(RESET)"
+	@if [ ! -f terraform/backend.tfvars ]; then \
+		echo "bucket = \"$(GCP_PROJECT_ID)-$(ENV)-tf-state\"" > terraform/backend.tfvars; \
+		echo "prefix = \"$(ENV)\"" >> terraform/backend.tfvars; \
 	fi
-	cd terraform/$(MODULE) && terraform init -backend-config=backend.tfvars
+	cd terraform && terraform init -backend-config=backend.tfvars
 
-
-plan: ## make plan MODULE=networking ENV=dev
-	@echo "$(GREEN)=== Planning $(MODULE) for $(ENV) ===$(RESET)"
-	@cd terraform/$(MODULE) && \
+plan: ## make plan ENV=dev
+	@echo "$(GREEN)=== Planning all modules for $(ENV) ===$(RESET)"
+	@cd terraform && \
 	terraform plan \
 		-var-file="values.$(ENV).tfvars" \
 		-var="project_id=$(GCP_PROJECT_ID)" \
 		-var="region=$(GCP_REGION)" \
-		-var="zone=$(GCP_ZONE)"
+		-var="zone=$(GCP_ZONE)" \
 
-apply: ## make apply MODULE=networking ENV=dev
-	@echo "$(GREEN)=== Applying $(MODULE) for $(ENV) ===$(RESET)"
-	@cd terraform/$(MODULE) && \
+apply: ## make apply ENV=dev
+	@echo "$(GREEN)=== Applying all modules for $(ENV) ===$(RESET)"
+	@cd terraform && \
 	terraform apply \
 		-var-file="values.$(ENV).tfvars" \
 		-var="project_id=$(GCP_PROJECT_ID)" \
@@ -79,9 +79,9 @@ apply: ## make apply MODULE=networking ENV=dev
 		-var="zone=$(GCP_ZONE)" \
 		-auto-approve
 
-destroy: ## make destroy MODULE=networking ENV=dev
-	@echo "$(RED)🔥 DESTROYING $(MODULE) for $(ENV) 🔥$(RESET)"
-	@cd terraform/$(MODULE) && \
+destroy: ## make destroy ENV=dev
+	@echo "$(RED)🔥 DESTROYING all modules for $(ENV) 🔥$(RESET)"
+	@cd terraform && \
 	terraform destroy \
 		-var-file="values.$(ENV).tfvars" \
 		-var="project_id=$(GCP_PROJECT_ID)" \
@@ -91,11 +91,8 @@ destroy: ## make destroy MODULE=networking ENV=dev
 
 validate: ## make validate
 	@echo "$(GREEN)=== Validating Terraform modules ===$(RESET)"
-	@for dir in $(TERRAFORM_DIRS); do \
-		echo "→ $$dir"; \
-		terraform -chdir=terraform/$$dir fmt -check && \
-		terraform -chdir=terraform/$$dir validate; \
-	done
+	terraform -chdir=terraform fmt -recursive -check && \
+	terraform -chdir=terraform validate -recursive; \
 
 fmt: ## make fmt
 	@echo "$(GREEN)=== Formatting Terraform code ===$(RESET)"
@@ -104,7 +101,7 @@ fmt: ## make fmt
 lint: ## make lint
 	@echo "$(GREEN)=== Linting Terraform ===$(RESET)"
 	@for dir in $(TERRAFORM_DIRS); do \
-		tflint --chdir=terraform/$$dir || true; \
+		tflint --chdir=terraform || true; \
 	done
 
 clean: ## make clean

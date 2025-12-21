@@ -12,7 +12,7 @@ resource "google_storage_bucket" "terraform_state" {
   # Lifecycle rule to delete old versions after 30 days
   lifecycle_rule {
     condition {
-      num_newer_versions = 5
+      num_newer_versions = 6
     }
     action {
       type = "Delete"
