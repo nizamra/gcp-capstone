@@ -7,6 +7,7 @@ RED    := $(shell tput -Txterm setaf 1)
 RESET  := $(shell tput -Txterm sgr0)
 
 # --- Configuration ---
+ENV            ?= dev
 GCP_PROJECT_ID ?= gcp-capstone-481414
 GCP_REGION     ?= us-central1
 GCP_ZONE       ?= us-central1-a
